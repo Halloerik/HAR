@@ -6,7 +6,7 @@ import torch.optim as optim
 
 class Net(nn.Module):
     
-    def __init__(self, imusizes, gpudevice, uncertaintyForwardPasses=1):
+    def __init__(self, imusizes, numberOfAttributes, gpudevice, uncertaintyForwardPasses=1):
         super(Net, self).__init__()
         #torch.nn.Conv1d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True)
         #torch.nn.MaxPool1d(kernel_size, stride=None, padding=0, dilation=1, return_indices=False, ceil_mode=False)
@@ -18,7 +18,7 @@ class Net(nn.Module):
         self.cuda(device=self.gpudevice)
         self.uncertaintyForwardPasses = uncertaintyForwardPasses
         self.numberOfIMUs = len(imusizes)
-        numberOfAttributes = 10
+        self.numberOfAttributes = numberOfAttributes
 
         self.imunets = []
         for sensorcount in imusizes:
@@ -26,7 +26,7 @@ class Net(nn.Module):
         self.dropout1 = nn.Dropout(0,5)
         self.fc1 = nn.Linear(512*self.numberOfIMUs, 512, bias=True)
         self.dropout2 = nn.Dropout(0,5)
-        self.fc2 = nn.Linear(512, numberOfAttributes, bias=True)
+        self.fc2 = nn.Linear(512, self.numberOfAttributes, bias=True)
     
     def train(self,mode=True):
         super(Net, self).train(mode)

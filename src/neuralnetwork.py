@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+import numpy as np
+
 
 class Net(nn.Module):
     
@@ -199,3 +201,7 @@ def test(network,dataset): #TODO adapt this tutorial method for my purpose
     for i in range(10):
         print('Accuracy of %5s : %2d %%' % (
             classes[i], 100 * class_correct[i] / class_total[i]))
+        
+        
+
+    

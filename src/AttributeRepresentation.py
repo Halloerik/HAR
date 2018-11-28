@@ -1,49 +1,52 @@
+import numpy as np
+from scipy.spatial import distance
+
 class attributeRepresentation():
     def __init__(self, numberOfClasses,numberOfAttributes):
         self.numberOfAttributes = numberOfAttributes
         self.numberOfClasses = numberOfClasses
-        self.attributes = numpy.zeros((numberOfClasses,numberOfAttributes))
+        self.attributes = np.zeros((numberOfClasses,numberOfAttributes))
         
-    def mutate(): #TODO
+    def mutate(self): #TODO: mutate attributerepresentation
         pass
     
-    def closest_class(attributeVector, distancemetric="cosine"):
+    def closest_class(self,attributeVector, distancemetric="cosine"):
         closestClass = 0
         if distancemetric is "cosine":
-            closestDistance = scipy.spatial.distance.cosine(attributeVector, self.attributes[0, :])
+            closestDistance = distance.cosine(attributeVector, self.attributes[0, :])
             for i in range(1,self.numberOfClasses):                
                 classVector = self.attributes[i, :]
-                newDistance = scipy.spatial.distance.cosine(attributeVector,classVector)
+                newDistance = distance.cosine(attributeVector,classVector)
                 if  newDistance < closestDistance:
                     closestClass = i
                     closestDistance = newDistance
             return closestClass
                 
         elif distancemetric is "euclidean":
-            closestDistance = scipy.spatial.distance.euclidean(attributeVector, self.attributes[0, :])
+            closestDistance = distance.euclidean(attributeVector, self.attributes[0, :])
             for i in range(1,self.numberOfClasses):                
                 classVector = self.attributes[i, :]
-                newDistance = scipy.spatial.distance.euclidean(attributeVector,classVector)
+                newDistance = distance.euclidean(attributeVector,classVector)
                 if  newDistance < closestDistance:
                     closestClass = i
                     closestDistance = newDistance
             return closestClass
             
         elif distancemetric is "cityblock":
-            closestDistance = scipy.spatial.distance.cityblock(attributeVector, self.attributes[0, :])
+            closestDistance = distance.cityblock(attributeVector, self.attributes[0, :])
             for i in range(1,self.numberOfClasses):                
                 classVector = self.attributes[i, :]
-                newDistance = scipy.spatial.distance.cityblock(attributeVector,classVector)
+                newDistance = distance.cityblock(attributeVector,classVector)
                 if  newDistance < closestDistance:
                     closestClass = i
                     closestDistance = newDistance
             return closestClass
             
         elif distancemetric is "braycurtis":
-            closestDistance = scipy.spatial.distance.braycurtis(attributeVector, self.attributes[0, :])
+            closestDistance = distance.braycurtis(attributeVector, self.attributes[0, :])
             for i in range(1,self.numberOfClasses):                
                 classVector = self.attributes[i, :]
-                newDistance = scipy.spatial.distance.braycurtis(attributeVector,classVector)
+                newDistance = distance.braycurtis(attributeVector,classVector)
                 if  newDistance < closestDistance:
                     closestClass = i
                     closestDistance = newDistance

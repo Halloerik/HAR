@@ -52,10 +52,14 @@ class Net(nn.Module):
         firstsensor = 0
         for i in range(self.numberOfIMUs):
             lastsensor = firstsensor + self.imusizes[i]
-            x = input[:,:,:,firstsensor:lastsensor]
+            
+            x = input[:,firstsensor:lastsensor,:]
+            
             y.append(self.imunets[i](x))
         
         extractedFeatures = y[0]
+        #print("extractedFeatures")
+        #print(extractedFeatures)
         for tensor in range(1,len(y)):
             extractedFeatures = torch.cat((extractedFeatures,y[tensor]),dim=1)
         
@@ -92,7 +96,7 @@ class Net(nn.Module):
             return result
 
 class IMUnet(nn.Module): #defines a parrallel convolutional block
-    def __init__(self,numberOfSensors, segmentsize,kernelsize, gpudevice):
+    def __init__(self,numberOfSensors, segmentsize,kernel_size, gpudevice):
         super(IMUnet, self).__init__()
         self.gpudevice = gpudevice
         self.cuda(device=self.gpudevice)
@@ -102,16 +106,24 @@ class IMUnet(nn.Module): #defines a parrallel convolutional block
         self.measurementLength = segmentsize
         
         self.dropout1 = nn.Dropout(0,5)
-        self.conv1 = nn.Conv2d( in_channels=1 , out_channels=64, kernel_size=(kernelsize,1), stride=1, padding=padding, bias=True)
+        #self.conv1 = nn.Conv2d( in_channels=1 , out_channels=64, kernel_size=(kernel_size,1), stride=1, padding=padding, bias=True)
         self.dropout2 = nn.Dropout(0,5)
-        self.conv2 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(kernelsize,1), stride=1, padding=padding, bias=True)
-        self.pool1 = nn.MaxPool2d(kernel_size=(2,1), stride=1, padding=0, return_indices=False, ceil_mode=False)
+        #self.conv2 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(kernel_size,1), stride=1, padding=padding, bias=True)
+        #self.pool1 = nn.MaxPool2d(kernel_size=(2,1), stride=1, padding=0, return_indices=False, ceil_mode=False)
         self.dropout3 = nn.Dropout(0,5)
-        self.conv3 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(kernelsize,1), stride=1, padding=padding, bias=True)
+        #self.conv3 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(kernel_size,1), stride=1, padding=padding, bias=True)
         self.dropout4 = nn.Dropout(0,5)
-        self.conv4 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(kernelsize,1), stride=1, padding=padding, bias=True)
-        self.pool2 = nn.MaxPool2d(kernel_size=(2,1), stride=1, padding=0, return_indices=False, ceil_mode=False) 
+        #self.conv4 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(kernel_size,1), stride=1, padding=padding, bias=True)
+        #self.pool2 = nn.MaxPool2d(kernel_size=(2,1), stride=1, padding=0, return_indices=False, ceil_mode=False) 
         self.dropout5 = nn.Dropout(0,5)
+        
+        self.conv1 = torch.nn.Conv1d(in_channels=numberOfSensors , out_channels=64, kernel_size=kernel_size, stride=1, padding=padding, dilation=1, bias=True)
+        self.conv2 = torch.nn.Conv1d(in_channels=64, out_channels=64, kernel_size=kernel_size, stride=1, padding=padding, dilation=1, bias=True)
+        self.conv3 = torch.nn.Conv1d(in_channels=64, out_channels=64, kernel_size=kernel_size, stride=1, padding=padding, dilation=1, bias=True)
+        self.conv4 = torch.nn.Conv1d(in_channels=64, out_channels=64, kernel_size=kernel_size, stride=1, padding=padding, dilation=1, bias=True)
+        
+        self.pool1 = torch.nn.MaxPool1d(kernel_size = 2, stride=1, padding=0, dilation=1, return_indices=False, ceil_mode=False)
+        self.pool2 = torch.nn.MaxPool1d(kernel_size = 2, stride=1, padding=0, dilation=1, return_indices=False, ceil_mode=False)
         
         #This is supposed to find out the inputsize of the final fullyconnected layer
         #segmentsize = segmentsize-4 #conv
@@ -122,10 +134,9 @@ class IMUnet(nn.Module): #defines a parrallel convolutional block
         #segmentsize = segmentsize-1 #maxpool
         #number of sensors is constant
         #and C_out is 64 while C_in was 1
-        neurons = (segmentsize-18)*numberOfSensors*64  
+        #neurons = (segmentsize-18)*numberOfSensors*64
+        neurons = (segmentsize-18)*64  
         self.fc1 = nn.Linear(int(neurons), 512, bias=True)
-        
-        
         
         
         
@@ -143,18 +154,21 @@ class IMUnet(nn.Module): #defines a parrallel convolutional block
 
 
 def train(network, training_loader, validation_loader, attr_representation, distance_metric="cosine", criterion=None, optimizer=None, epochs=2): 
-    
-    network.train(True)
-
     if criterion is None:
         criterion = nn.BCELoss(weight=None, size_average=None, reduce=None, reduction='elementwise_mean')
         #criterion = nn.CrossEntropyLoss()
     if optimizer is None:
-        optimizer = optim.SGD(network.parameters(), lr=0.001, momentum=0.9) #TODO: adapt lr and momentum 
-
+        optimizer = optim.SGD(network.parameters(), lr=0.0001, momentum=0.9) #TODO: adapt lr and momentum 
+    
+    print("initial performance")
+    test(network,training_loader, "training" , attr_representation,distance_metric)
+    test(network,validation_loader, "validation" , attr_representation,distance_metric)
+    network.train(True)
     for epoch in range(epochs):  # loop over the dataset multiple times
-
-        running_loss = 0.0
+        
+        print("epoch:{}/{}".format(epoch+1,epochs))
+        
+        #running_loss = 0.0
         for i, data in enumerate(training_loader, 0):
             # get the inputs
             inputs, labels = data
@@ -162,18 +176,24 @@ def train(network, training_loader, validation_loader, attr_representation, dist
             optimizer.zero_grad()
             # forward + backward + optimize
             outputs = network(inputs)
-            loss = criterion(outputs, attr_representation.attributevector_of_class(labels))
+            
+            truth = attr_representation.attributevector_of_class(labels)
+            
+            #print("output")
+            #print(outputs)
+            #print("labels")
+            #print(labels)
+            #print("truth")
+            #print(truth)
+            
+            loss = criterion(outputs, truth)
+
             loss.backward()
             optimizer.step()
-            #print("progress {}".format(i))
-            # print statistics
-            #running_loss += loss.item()
-            if i % 1000 == 999:    # print every 1000 mini-batches
-                #print('[{}, {}] loss: {}'.format(epoch + 1, i + 1, running_loss / 100))
-                #running_loss = 0.0
-                test(network,training_loader, "training" , attr_representation,distance_metric,)
-                test(network,validation_loader, "validation" , attr_representation,distance_metric)
-                network.train(True)
+        #Print Stats after full epoch    
+        test(network,training_loader, "training" , attr_representation,distance_metric,)
+        test(network,validation_loader, "validation" , attr_representation,distance_metric)
+        network.train(True)
 
     print('Finished Training')
 
@@ -186,10 +206,19 @@ def test(network,data_loader, data_name, attr_representation,distance_metric="co
     with torch.no_grad():
         for data in data_loader:
             inputs, labels = data
-            #print(inputs.shape)
+            
             outputs = network(inputs)
             #_, predicted = torch.max(outputs.data, 1)
             predicted = attr_representation.closest_class(outputs, distance_metric)
+            #print("input")
+            #print(inputs.shape)
+            #print("labels")
+            #print(labels.shape)
+            #print("outputs")
+            #print(outputs.shape)
+            #print("predicted")
+            #print(predicted.shape)
+            
             total += labels.size(0)
             correct += (predicted.float() == labels.float()).sum().item()
 

@@ -106,5 +106,6 @@ class Attribute_Representation():
         batch_size = class_indeces.shape[0]
         class_attributes = torch.zeros(batch_size,self.numberOfAttributes)
         for i in range(batch_size):
-            class_attributes[i,:] = self.attributes[i, :] 
+            class_index = int(class_indeces[i].item())
+            class_attributes[i,:] = self.attributes[class_index, :] 
         return class_attributes

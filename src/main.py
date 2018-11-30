@@ -46,7 +46,11 @@ imulist = [1,13,13,13]
 
 net = neuralnetwork.Net(imulist, sliding_window_size, 12, gpudevice, uncertaintyForwardPasses=100)
 
-print(net.parameters())
+
+#training_data   = neuralnetwork.shapeinputs(imulist, training_data   ,gpudevice)
+#validation_data = neuralnetwork.shapeinputs(imulist, validation_data ,gpudevice)
+#test_data       = neuralnetwork.shapeinputs(imulist, test_data       ,gpudevice)
+
 
 #
 neuralnetwork.train(net, training_loader, validation_loader, attr_representation, "cosine", epochs=10)

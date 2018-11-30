@@ -16,8 +16,7 @@ class Sliding_Window_Dataset(Dataset):
         
         self.data = torch.from_numpy(self.data)
         self.data = self.data.float()
-        self.data = torch.transpose(self.data,0,1)
-        #self.data = self.data.reshape(1,t,d)
+        self.data = self.data.reshape(1,t,d)
         self.data.to(device = gpudevice)
         
         
@@ -46,7 +45,7 @@ class Sliding_Window_Dataset(Dataset):
         lowerbound = index      * self.sliding_window_step
         upperbound = lowerbound + self.sliding_window_size
         # Load segment and get label
-        segment = self.data[:,lowerbound:upperbound]
+        segment = self.data[:, lowerbound:upperbound, :]
         label = torch.mode(self.labels[lowerbound:upperbound])[0].item()
         
         #attribute_vector = self.attribute_representation.attributevector_of_class(label)
@@ -107,21 +106,5 @@ class Attribute_Representation():
         batch_size = class_indeces.shape[0]
         class_attributes = torch.zeros(batch_size,self.numberOfAttributes)
         for i in range(batch_size):
-            class_index = int(class_indeces[i].item())
-            class_attributes[i,:] = self.attributes[class_index, :] 
+            class_attributes[i,:] = self.attributes[i, :] 
         return class_attributes
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    

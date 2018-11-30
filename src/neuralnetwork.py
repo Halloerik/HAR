@@ -167,17 +167,18 @@ def train(network, training_loader, validation_loader, attr_representation, dist
             optimizer.step()
             #print("progress {}".format(i))
             # print statistics
-            running_loss += loss.item()
+            #running_loss += loss.item()
             if i % 1000 == 999:    # print every 1000 mini-batches
-                print('[{}, {}] loss: {}'.format(epoch + 1, i + 1, running_loss / 100))
-                running_loss = 0.0
-                test(network,validation_loader, attr_representation,distance_metric)
+                #print('[{}, {}] loss: {}'.format(epoch + 1, i + 1, running_loss / 100))
+                #running_loss = 0.0
+                test(network,training_loader, "training" , attr_representation,distance_metric,)
+                test(network,validation_loader, "validation" , attr_representation,distance_metric)
                 network.train(True)
 
     print('Finished Training')
 
 
-def test(network,data_loader, attr_representation,distance_metric="cosine"): #TODO: adapt this tutorial method for my purpose
+def test(network,data_loader, data_name, attr_representation,distance_metric="cosine"): #TODO: adapt this tutorial method for my purpose
     network.eval()
 
     correct = 0
@@ -192,7 +193,7 @@ def test(network,data_loader, attr_representation,distance_metric="cosine"): #TO
             total += labels.size(0)
             correct += (predicted.float() == labels.float()).sum().item()
 
-    print('Accuracy of the network: {} %'.format( 100 * correct / total ))
+    print('Accuracy of the network on the {}_set: {} %'.format( data_name,100 * correct / total ))
     
     #class_correct = list(0. for i in range(10))
     #class_total = list(0. for i in range(10))

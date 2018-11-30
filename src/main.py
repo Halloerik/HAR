@@ -52,9 +52,9 @@ net = neuralnetwork.Net(imulist, sliding_window_size, 12, gpudevice, uncertainty
 #test_data       = neuralnetwork.shapeinputs(imulist, test_data       ,gpudevice)
 
 
-#neuralnetwork.test(net, test_loader, attr_representation)
-neuralnetwork.train(net, training_loader, validation_loader, attr_representation, "braycurtis")
-    
+#
+neuralnetwork.train(net, training_loader, validation_loader, attr_representation, "cosine", epochs=10)
+neuralnetwork.test(net, test_loader,"test" ,attr_representation)
     
     
     

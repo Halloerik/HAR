@@ -8,11 +8,13 @@ from scipy.spatial import distance
 #https://stanford.edu/~shervine/blog/pytorch-how-to-generate-data-parallel#disqus-thread
 class Sliding_Window_Dataset(Dataset):
     'Characterizes a dataset for PyTorch'
-    def __init__(self, data, gpudevice, sliding_window_size, sliding_window_step, attr_representation=None):
+    def __init__(self, data, gpudevice, sliding_window_size, sliding_window_step):
         super(Sliding_Window_Dataset, self).__init__()
         'Initialization'
         self.data, self.labels = data
         t,d = self.data.shape
+        
+        #print("t:{} d:{}".format(t,d))
         
         self.data = torch.from_numpy(self.data)
         self.data = self.data.float()
@@ -21,19 +23,12 @@ class Sliding_Window_Dataset(Dataset):
         
         
         self.labels = torch.from_numpy(self.labels)
-        self.labels = self.labels.float()
+        self.labels = self.labels.int()
         
         self.sliding_window_size = sliding_window_size
         self.sliding_window_step = sliding_window_step
         
-        if attr_representation is None:
-            numberOfClasses = torch.unique(self.labels).shape[0]
-            #print(numberOfClasses)
-            self.attribute_representation = Attribute_Representation(numberOfClasses,numberOfClasses)
-            self.attribute_representation.diagonal_matrix()
-        else:
-            self.attribute_representation = attr_representation
-        
+
         
     def __len__(self):
         'Denotes the total number of samples'
@@ -47,9 +42,6 @@ class Sliding_Window_Dataset(Dataset):
         # Load segment and get label
         segment = self.data[:, lowerbound:upperbound, :]
         label = torch.mode(self.labels[lowerbound:upperbound])[0].item()
-        
-        #attribute_vector = self.attribute_representation.attributevector_of_class(label)
-        #return segment, attribute_vector
         
         return segment,label
     
@@ -106,5 +98,8 @@ class Attribute_Representation():
         batch_size = class_indeces.shape[0]
         class_attributes = torch.zeros(batch_size,self.numberOfAttributes)
         for i in range(batch_size):
-            class_attributes[i,:] = self.attributes[i, :] 
+            class_index = int(class_indeces[i].item())
+            class_attributes[i,:] = self.attributes[class_index, :] 
         return class_attributes
+    
+    

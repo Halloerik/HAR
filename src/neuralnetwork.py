@@ -9,11 +9,6 @@ class Net(nn.Module):
     
     def __init__(self, imusizes, segmentsize, numberOfAttributes, gpudevice, kernelsize=5, uncertaintyForwardPasses=1 ):
         super(Net, self).__init__()
-        #torch.nn.Conv1d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True)
-        #torch.nn.MaxPool1d(kernel_size, stride=None, padding=0, dilation=1, return_indices=False, ceil_mode=False)
-        #torch.nn.Sigmoid
-        #torch.nn.Linear(in_features, out_features, bias=True)
-        #torch.nn.ReLU(inplace=False)
         self.gpudevice = gpudevice
         self.cuda(device=self.gpudevice)
         self.uncertaintyForwardPasses = uncertaintyForwardPasses
@@ -90,10 +85,6 @@ class IMUnet(nn.Module): #defines a parrallel convolutional block
         neurons = (segmentsize-18)*numberOfSensors*64  
         self.fc1 = nn.Linear(int(neurons), 512, bias=True)
         
-        
-        
-        
-        
     def forward(self, input):
         
         
@@ -108,6 +99,29 @@ class IMUnet(nn.Module): #defines a parrallel convolutional block
         input = F.relu( self.fc1( self.dropout5(input)))
         return input
 
+class smallnet(nn.Module):
+    def __init__(self, segmentsize, numberOfAttributes, gpudevice, kernelsize):
+        super(smallnet, self).__init__()
+        self.gpudevice = gpudevice
+        self.cuda(device=self.gpudevice)
+        self.numberOfAttributes = numberOfAttributes
+        
+        imunet = IMUnet(40, segmentsize,kernelsize, self.gpudevice)
+        self.add_module("IMUnet",imunet)
+            
+        self.dropout1 = nn.Dropout(0,5)
+        self.fc1 = nn.Linear(512, 512, bias=True)
+        self.dropout2 = nn.Dropout(0,5)
+        self.fc2 = nn.Linear(512, self.numberOfAttributes, bias=True)
+        
+    def forward(self,input):
+        imunets = self.named_children()
+        
+        z = next(imunets)[1](input)
+        z = F.relu( self.fc1(self.dropout1(z)))
+        z = self.fc2(self.dropout2(z))
+        z = torch.softmax( z, dim=1)        
+        return z
 
 def train(network, training_loader, validation_loader, criterion, optimizer, epochs): 
     
@@ -162,7 +176,12 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
 
     print('Finished Training')
     
-    return(loss,accuracy,f1, loss_val,accuracy_val,f1_val) 
+    return(loss.detach().numpy(),
+           loss_val.detach().numpy(),
+           accuracy.detach().numpy(),
+           accuracy_val.detach().numpy(),
+           f1.detach().numpy(),
+           f1_val.detach().numpy()) 
 
 
 def test(network,data_loader, criterion): #TODO: adapt this tutorial method for my purpose

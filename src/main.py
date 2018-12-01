@@ -1,6 +1,8 @@
 import pickle
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
+
 
 import preprocessing_pamap2 as pamap2
 import neuralnetwork
@@ -34,55 +36,110 @@ def get_optimiser(network, optimizer, learning_rate, weight_decay,momentum):
         return torch.optim.SGD(network.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
         
 
+
+def plot_training_data(data, epochs):
+    fig, ax_lst = plt.subplots(1, 3)
+    fig.suptitle('Performance during Trainingphase')
+    
+    x = np.arange(epochs)
+    
+    ax_lst[0].set_title("Loss")
+    ax_lst[0].set_xlabel("Epochs")
+    ax_lst[0].set_ylabel("")
+    y1 = data[0]
+    y2 = data[1]
+    ax_lst[0].plot(x,y1, label="Training")
+    ax_lst[0].plot(x,y2, label="Validation")
+    
+    ax_lst[1].set_title("Accuracy")
+    ax_lst[1].set_xlabel("Epochs")
+    ax_lst[1].set_ylabel("")
+    y1 = data[2]
+    y2 = data[3]
+    ax_lst[1].plot(x,y1, label="Training")
+    ax_lst[1].plot(x,y2, label="Validation")
+    
+    ax_lst[2].set_title("F1")
+    ax_lst[2].set_xlabel("Epochs")
+    ax_lst[2].set_ylabel("")
+    y1 = data[4]
+    y2 = data[5]
+    ax_lst[2].plot(x,y1, label="Training")
+    ax_lst[2].plot(x,y2, label="Validation")
+      
+    plt.show()
+    
+def save_training__data(name, data,comment):
+    f= open("../datasets/{}.txt".format(name), 'w+t')
+    
+    table = np.stack(data, 1)
+    
+    np.savetxt(f, table, delimiter=' ', newline='\n', 
+               header='loss_trn loss_val accurary_trn accuracy_val f1_trn f1_val',
+               comments='# {}\n'.format(comment) )
+    
+    f.close()
+    
+
 def main():
-    data_set = ["pamap2"]
-    batch_size = [128]
-    sliding_window_size = 100
-    sliding_window_step = 22
+    config = {
+    'data_set' : ["pamap2"],
+    'batch_size' : [128],
+    'sliding_window_size' : 100,
+    'sliding_window_step' : 22,
     
     #Training Parameters
-    epochs = 10
-    learning_rate = [0.0001]
-    weight_decay = [0.0001]
-    momentum = [0.9]
-    loss_critereon = [torch.nn.CrossEntropyLoss()]
-    optimizer = ["SGD"]
+    'epochs' : 50,
+    'learning_rate' : [0.0001],
+    'weight_decay' : [0.0001],
+    'momentum' : [0.9],
+    'loss_critereon' : [torch.nn.CrossEntropyLoss()],
+    'optimizer' : ["SGD"],
     
     
     #Network parameters
-    kernelsize = [(5,1)]
+    'kernelsize' : [(5,1)],
     
     
     
-    gpu_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    'gpu_device' : torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
     
     #Attribute Representation
     #number_of_attributes = [12]
     #Uncertainty
     #uncertainty_forward_passes = [100]
     
+    }
+    
+    run_number = 0
     
     
-    for ds in data_set:
-        for b in batch_size:
-            training_loader,validation_loader,test_loader, imu_list = load_data(ds,gpu_device,b,sliding_window_size,sliding_window_step)
-            for lr in learning_rate:
-                for wd in weight_decay:
-                    for m in momentum:
-                        for ks in kernelsize:
-                            for opt in optimizer:
-                                for criterion in loss_critereon:
-                                    network = neuralnetwork.Net(imu_list, sliding_window_size, 12, gpu_device, ks)
+    
+    for ds in config['data_set']:
+        for b in config['batch_size']:
+            training_loader,validation_loader,test_loader, imu_list = load_data(
+                ds,config['gpu_device'],b,config['sliding_window_size'],config['sliding_window_step'])
+            for lr in config['learning_rate']:
+                for wd in config['weight_decay']:
+                    for m in config['momentum']:
+                        for ks in config['kernelsize']:
+                            for opt in config['optimizer']:
+                                for criterion in config['loss_critereon']:
+                                    network = neuralnetwork.Net(imu_list, config['sliding_window_size'], 12, config['gpu_device'], ks)
+                                    #network = neuralnetwork.IMUnet(40, sliding_window_size,ks, gpu_device)
+                                    #network = neuralnetwork.smallnet(sliding_window_size, 12, gpu_device, ks)
                                     opt = get_optimiser(network, opt, lr, wd, m)
                                     
+                                    #print(opt.state_dict()['param_groups']) #[0]['params']
                                     
                                     
-                                    neuralnetwork.train(network, training_loader, validation_loader, criterion, opt, epochs=epochs)
-                                    #neuralnetwork.test(net, test_loader,"test")
-  
+                                    data = neuralnetwork.train(network, training_loader, validation_loader, criterion, opt, epochs=config['epochs'])
+                                    plot_training_data(data, config['epochs'])
                                     
-                
-                
+                                    
+                                    save_training__data("train run {}".format(run_number),data,config)
+                             
+                                    run_number += 1
                 
                 
     

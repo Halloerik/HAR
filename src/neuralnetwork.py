@@ -7,11 +7,10 @@ from sklearn.metrics import f1_score
 
 class Net(nn.Module):
     
-    def __init__(self, imusizes, segmentsize, numberOfAttributes, gpudevice, kernelsize=5, uncertaintyForwardPasses=1 ):
+    def __init__(self, imusizes, segmentsize, numberOfAttributes, gpudevice, kernelsize):
         super(Net, self).__init__()
         self.gpudevice = gpudevice
         self.cuda(device=self.gpudevice)
-        self.uncertaintyForwardPasses = uncertaintyForwardPasses
         self.imusizes = imusizes
         self.numberOfIMUs = len(imusizes)
         self.numberOfAttributes = numberOfAttributes
@@ -25,9 +24,7 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(512*self.numberOfIMUs, 512, bias=True)
         self.dropout2 = nn.Dropout(0,5)
         self.fc2 = nn.Linear(512, self.numberOfAttributes, bias=True)
-        
-    
-
+        self.softmax = torch.nn.Softmax(dim=1)
         
     def forward(self,input):
         #input ist ein tensor mit shape[n,C_in,t,d] 
@@ -42,8 +39,10 @@ class Net(nn.Module):
         for i in range(self.numberOfIMUs):
             lastsensor = firstsensor + self.imusizes[i]
             x = input[:,:,:,firstsensor:lastsensor]
-            
-            y.append(next(imunets)[1](x))
+            x = next(imunets)[1](x)
+            y.append(x)
+            firstsensor = lastsensor
+        
         
         extractedFeatures = y[0]
         for tensor in range(1,len(y)):
@@ -53,12 +52,11 @@ class Net(nn.Module):
         
         #Compute single forwardpass without dropout
         z = torch.tensor(extractedFeatures)
-        z = F.relu( self.fc1(self.dropout1(z)))
+        z = F.relu(self.fc1(self.dropout1(z)))
         z = self.fc2(self.dropout2(z))
-        z = torch.softmax( z, dim=1)
-        result = z
+        z = self.softmax(z)
         
-        return result
+        return z
 
 class IMUnet(nn.Module): #defines a parrallel convolutional block
     def __init__(self,numberOfSensors, segmentsize,kernelsize, gpudevice):
@@ -200,14 +198,22 @@ def test(network,data_loader, criterion): #TODO: adapt this tutorial method for 
             inputs, label = data
 
             output = network(inputs)
-            
             outputs = torch.cat((outputs,output),0)
-            labels = torch.cat((labels,label),0)
             
+            labels = torch.cat((labels,label),0)
+
         _, predicted = torch.max(outputs.data, 1)
-        total = labels.size(0)
+        
+        
+        #print("labels shape {}".format(labels.shape))    
+        #print("outputs shape {}".format(outputs.shape))
+        #print("predicted shape {}".format(predicted.shape))
+        
+        total = labels.shape[0]
         correct = (predicted.float() == labels.float()).sum().item()    
         
+        #print("total: {}".format(total))
+        #print("correct: {}".format(correct))
         
         loss = criterion(outputs, labels)
         accuracy = correct / total

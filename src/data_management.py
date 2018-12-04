@@ -11,6 +11,7 @@ class Sliding_Window_Dataset(Dataset):
     def __init__(self, data, gpudevice, sliding_window_size, sliding_window_step):
         super(Sliding_Window_Dataset, self).__init__()
         'Initialization'
+        self.gpudevice = gpudevice
         self.data, self.labels = data
         t,d = self.data.shape
         
@@ -19,11 +20,12 @@ class Sliding_Window_Dataset(Dataset):
         self.data = torch.from_numpy(self.data)
         self.data = self.data.float()
         self.data = self.data.reshape(1,t,d)
-        self.data.to(device = gpudevice)
+        #self.data = self.data.to(device = self.gpudevice)
         
         
         self.labels = torch.from_numpy(self.labels)
         self.labels = self.labels.int()
+        #self.labels = self.labels.to(device = self.gpudevice)
         
         self.sliding_window_size = sliding_window_size
         self.sliding_window_step = sliding_window_step

@@ -15,10 +15,11 @@ class Net(nn.Module):
         self.numberOfIMUs = len(imusizes)
         self.numberOfAttributes = numberOfAttributes
 
-
+        self.imu_list = []
         for i, sensorcount in enumerate(imusizes):
             imunet = IMUnet(sensorcount, segmentsize,kernelsize, self.gpudevice)
             self.add_module("IMUnet{}".format(i),imunet)
+            self.imu_list.append(imunet)
             
         self.dropout1 = nn.Dropout(0,5)
         self.fc1 = nn.Linear(512*self.numberOfIMUs, 512, bias=True)
@@ -33,21 +34,35 @@ class Net(nn.Module):
         # t = sensor inputs
         # d = sensoren anzahl
         
-        y = []
-        firstsensor = 0
-        imunets = self.named_children()
-        for i in range(self.numberOfIMUs):
-            lastsensor = firstsensor + self.imusizes[i]
-            x = input[:,:,:,firstsensor:lastsensor]
-            x = next(imunets)[1](x)
-            y.append(x)
-            firstsensor = lastsensor
+        #y = []
+        #firstsensor = 0
+        #imunets = self.named_children()
+        #for i in range(self.numberOfIMUs):
+        #    lastsensor = firstsensor + self.imusizes[i]
+        #    x = input[:,:,:,firstsensor:lastsensor]
+        #    x = next(imunets)[1](x)
+        #    y.append(x)
+        #    firstsensor = lastsensor
         
         
-        extractedFeatures = y[0]
-        for tensor in range(1,len(y)):
-            extractedFeatures = torch.cat((extractedFeatures,y[tensor]),dim=1)
+        #extractedFeatures = y[0]
+        #for tensor in range(1,len(y)):
+        #    extractedFeatures = torch.cat((extractedFeatures,y[tensor]),dim=1)
 
+        
+        
+        extractedFeatures = torch.zeros(0,dtype=torch.float,device =self.gpudevice)
+        firstsensor = 0
+        for i, imu in enumerate(self.imu_list):
+            lastsensor = firstsensor + self.imusizes[i]
+            x = input[:,:,:,firstsensor:lastsensor].cuda(self.gpudevice)
+            x = imu(x)
+            extractedFeatures = torch.cat((extractedFeatures,x),dim=1)
+            firstsensor = lastsensor
+            
+        
+        
+        
         
         
         #Compute single forwardpass without dropout
@@ -56,14 +71,14 @@ class Net(nn.Module):
         z = self.fc2(self.dropout2(z))
         z = self.softmax(z)
         
-        return z
+        return z.to(device = "cpu")
 
 class IMUnet(nn.Module): #defines a parrallel convolutional block
     def __init__(self,numberOfSensors, segmentsize,kernelsize, gpudevice):
         super(IMUnet, self).__init__()
         self.gpudevice = gpudevice
         self.cuda(device=self.gpudevice)
-
+        
         padding = 0
         self.numberOfSensors = numberOfSensors
         self.measurementLength = segmentsize
@@ -121,7 +136,7 @@ class smallnet(nn.Module):
         z = torch.softmax( z, dim=1)        
         return z
 
-def train(network, training_loader, validation_loader, criterion, optimizer, epochs): 
+def train(network, training_loader, validation_loader, criterion, optimizer, epochs, gpudevice): 
     
     
     loss = torch.zeros(epochs)
@@ -143,6 +158,8 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
         for i, data in enumerate(training_loader, 0):
             # get the inputs
             inputs, labels = data
+            inputs = inputs.cuda(device = gpudevice)
+            #labels = labels.cuda(device = gpudevice)
             # zero the parameter gradients
             optimizer.zero_grad()
             # forward + backward + optimize
@@ -155,7 +172,7 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
         total = labels.size(0)
         correct = (predicted.float() == labels.float()).sum().item()
         
-        loss[epoch] = iter_loss
+        loss[epoch] = iter_loss.detach()
         accuracy[epoch] = correct / total
         f1[epoch] = f1_score(labels, predicted, average='weighted')
         
@@ -164,7 +181,7 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
         print("f1 score of training: {}".format(f1[epoch]))
         
         
-        loss_val[epoch], accuracy_val[epoch], f1_val[epoch] = test(network,validation_loader, criterion)
+        loss_val[epoch], accuracy_val[epoch], f1_val[epoch] = test(network,validation_loader, criterion,gpudevice)
         
         print("loss of validation: {}".format(loss_val[epoch]))
         print("accuracy of validation: {}".format(accuracy_val[epoch]))
@@ -182,7 +199,7 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
            f1_val.detach().numpy()) 
 
 
-def test(network,data_loader, criterion): #TODO: adapt this tutorial method for my purpose
+def test(network,data_loader, criterion,gpudevice): #TODO: adapt this tutorial method for my purpose
     
     network.eval()
 
@@ -196,7 +213,9 @@ def test(network,data_loader, criterion): #TODO: adapt this tutorial method for 
     with torch.no_grad():
         for data in data_loader:
             inputs, label = data
-
+            inputs.cuda(device = gpudevice)
+            label.to(device = gpudevice)
+            
             output = network(inputs)
             outputs = torch.cat((outputs,output),0)
             

@@ -30,15 +30,12 @@ def load_data(dataset,gpudevice,batch_size,sliding_window_size,sliding_window_st
     
     return training_loader, validation_loader, test_loader, imulist
 
-
 def get_optimiser(network, optimizer, learning_rate, weight_decay,momentum):
     if optimizer is "SGD":
         return torch.optim.SGD(network.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
-        
-
 
 def plot_run_stats(name,data, epochs):
-    fig, ax_lst = plt.subplots(1, 3)
+    fig, ax_lst = plt.subplots(3, 1)
     fig.suptitle('Performance during Trainingphase')
     
     x = np.arange(epochs)
@@ -72,8 +69,8 @@ def plot_run_stats(name,data, epochs):
     
     #plt.show()
     
-    f= open("../../performance/{}.txt".format(name), 'w+b')
-    plt.savefig(f, facecolor='w', edgecolor='w', orientation='landscape')
+    f= open("../../performance/{}.png".format(name), 'w+b')
+    plt.savefig(f, facecolor='w', edgecolor='w')
     f.close()
     
 def save_run_stats(name, data,comment):
@@ -95,8 +92,9 @@ def main():
     'sliding_window_step' : 22,
     
     #Training Parameters
-    'epochs' : 50,
-    'learning_rate' : [0.01,0.001,0.0001],
+    'epochs' : 200,
+    #'learning_rate' : [0.01,0.001,0.0001],
+    'learning_rate' : [0.001,0.0001],
     'weight_decay' : [0.0001],
     'momentum' : [0.9,0.8,0.7],
     'loss_critereon' : [torch.nn.CrossEntropyLoss()],
@@ -175,7 +173,5 @@ def current_config_str(config, current_run):
     
     
 if __name__ == '__main__':
-    
-    
     main()   
     

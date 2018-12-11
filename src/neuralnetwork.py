@@ -25,7 +25,8 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(512*self.numberOfIMUs, 512, bias=True)
         self.dropout2 = nn.Dropout(0,5)
         self.fc2 = nn.Linear(512, self.numberOfAttributes, bias=True)
-        self.softmax = torch.nn.Softmax(dim=1)
+        #self.softmax = torch.nn.Softmax(dim=1)
+        self.sigmoid = torch.nn.Sigmoid()
         
     def forward(self,input):
         #input ist ein tensor mit shape[n,C_in,t,d] 
@@ -33,23 +34,6 @@ class Net(nn.Module):
         # C_in = 1
         # t = sensor inputs
         # d = sensoren anzahl
-        
-        #y = []
-        #firstsensor = 0
-        #imunets = self.named_children()
-        #for i in range(self.numberOfIMUs):
-        #    lastsensor = firstsensor + self.imusizes[i]
-        #    x = input[:,:,:,firstsensor:lastsensor]
-        #    x = next(imunets)[1](x)
-        #    y.append(x)
-        #    firstsensor = lastsensor
-        
-        
-        #extractedFeatures = y[0]
-        #for tensor in range(1,len(y)):
-        #    extractedFeatures = torch.cat((extractedFeatures,y[tensor]),dim=1)
-
-        
         
         extractedFeatures = torch.zeros(0,dtype=torch.float,device =self.gpudevice)
         firstsensor = 0
@@ -59,19 +43,14 @@ class Net(nn.Module):
             x = imu(x)
             extractedFeatures = torch.cat((extractedFeatures,x),dim=1)
             firstsensor = lastsensor
-            
-        
-        
-        
-        
         
         #Compute single forwardpass without dropout
-        z = torch.tensor(extractedFeatures)
-        z = F.relu(self.fc1(self.dropout1(z)))
-        z = self.fc2(self.dropout2(z))
-        z = self.softmax(z)
+        single_forward_pass = torch.tensor(extractedFeatures)
+        single_forward_pass = F.relu(self.fc1(self.dropout1(single_forward_pass)))
+        single_forward_pass = self.fc2(self.dropout2(single_forward_pass))
+        single_forward_pass = self.sigmoid(single_forward_pass)
         
-        return z.to(device = "cpu")
+        return single_forward_pass.to(device = "cpu")
 
 class IMUnet(nn.Module): #defines a parrallel convolutional block
     def __init__(self,numberOfSensors, segmentsize,kernelsize, gpudevice):

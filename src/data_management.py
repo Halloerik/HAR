@@ -77,11 +77,11 @@ class Attribute_Representation():
                 attrVector = attributeVector[batch,:]
                 classVector = self.attributes[i, :]
                 newDistance = self.distance(attrVector,classVector,distancemetric)
-                if  newDistance < closestDistance:
+                if  newDistance <= closestDistance:
                     closestDistance = newDistance
                     closestClass[batch] = i
             
-            return closestClass
+        return closestClass
         
         
     def distance(self, u,v,distancemetric):

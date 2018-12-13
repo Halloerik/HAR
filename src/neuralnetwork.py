@@ -25,7 +25,8 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(512*self.numberOfIMUs, 512, bias=True)
         self.dropout2 = nn.Dropout(0,5)
         self.fc2 = nn.Linear(512, self.numberOfAttributes, bias=True)
-        self.softmax = torch.nn.Softmax(dim=1)
+        #self.softmax = torch.nn.Softmax(dim=1)
+        self.sigmoid = torch.nn.Sigmoid()
         
     def forward(self,input):
         #input ist ein tensor mit shape[n,C_in,t,d] 
@@ -33,23 +34,6 @@ class Net(nn.Module):
         # C_in = 1
         # t = sensor inputs
         # d = sensoren anzahl
-        
-        #y = []
-        #firstsensor = 0
-        #imunets = self.named_children()
-        #for i in range(self.numberOfIMUs):
-        #    lastsensor = firstsensor + self.imusizes[i]
-        #    x = input[:,:,:,firstsensor:lastsensor]
-        #    x = next(imunets)[1](x)
-        #    y.append(x)
-        #    firstsensor = lastsensor
-        
-        
-        #extractedFeatures = y[0]
-        #for tensor in range(1,len(y)):
-        #    extractedFeatures = torch.cat((extractedFeatures,y[tensor]),dim=1)
-
-        
         
         extractedFeatures = torch.zeros(0,dtype=torch.float,device =self.gpudevice)
         firstsensor = 0
@@ -59,19 +43,14 @@ class Net(nn.Module):
             x = imu(x)
             extractedFeatures = torch.cat((extractedFeatures,x),dim=1)
             firstsensor = lastsensor
-            
-        
-        
-        
-        
         
         #Compute single forwardpass without dropout
-        z = torch.tensor(extractedFeatures)
-        z = F.relu(self.fc1(self.dropout1(z)))
-        z = self.fc2(self.dropout2(z))
-        z = self.softmax(z)
+        single_forward_pass = torch.tensor(extractedFeatures)
+        single_forward_pass = F.relu(self.fc1(self.dropout1(single_forward_pass)))
+        single_forward_pass = self.fc2(self.dropout2(single_forward_pass))
+        single_forward_pass = self.sigmoid(single_forward_pass)
         
-        return z.to(device = "cpu")
+        return single_forward_pass.to(device = "cpu")
 
 class IMUnet(nn.Module): #defines a parrallel convolutional block
     def __init__(self,numberOfSensors, segmentsize,kernelsize, gpudevice):
@@ -136,7 +115,7 @@ class smallnet(nn.Module):
         z = torch.softmax( z, dim=1)        
         return z
 
-def train(network, training_loader, validation_loader, criterion, optimizer, epochs, gpudevice): 
+def train(network, training_loader, validation_loader, criterion, optimizer, epochs, gpudevice, attr_rep, dist_metric): 
     
     
     loss = torch.zeros(epochs)
@@ -160,15 +139,24 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
             inputs, labels = data
             inputs = inputs.cuda(device = gpudevice)
             #labels = labels.cuda(device = gpudevice)
+            
+            label_vectors = attr_rep.attributevector_of_class(labels)
+            
             # zero the parameter gradients
             optimizer.zero_grad()
             # forward + backward + optimize
             outputs = network(inputs)
-            iter_loss = criterion(outputs, labels)
+            
+            iter_loss = criterion(outputs, label_vectors)
             iter_loss.backward()
             optimizer.step()
         
-        _, predicted = torch.max(outputs.data, 1)
+        #_, predicted = torch.max(outputs.data, 1)
+        predicted = attr_rep.closest_class(outputs.detach(), dist_metric)
+        
+        #print("label shape: {} predicted shape: {}".format(labels.shape,predicted.shape))
+        
+        
         total = labels.size(0)
         correct = (predicted.float() == labels.float()).sum().item()
         
@@ -181,7 +169,7 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
         print("f1 score of training: {}".format(f1[epoch]))
         
         
-        loss_val[epoch], accuracy_val[epoch], f1_val[epoch] = test(network,validation_loader, criterion,gpudevice)
+        loss_val[epoch], accuracy_val[epoch], f1_val[epoch] = test(network,validation_loader, criterion,gpudevice, attr_rep, dist_metric)
         
         print("loss of validation: {}".format(loss_val[epoch]))
         print("accuracy of validation: {}".format(accuracy_val[epoch]))
@@ -199,7 +187,7 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
            f1_val.detach().numpy()) 
 
 
-def test(network,data_loader, criterion,gpudevice): #TODO: adapt this tutorial method for my purpose
+def test(network,data_loader, criterion,gpudevice, attr_rep, dist_metric): #TODO: adapt this tutorial method for my purpose
     
     network.eval()
 
@@ -221,20 +209,16 @@ def test(network,data_loader, criterion,gpudevice): #TODO: adapt this tutorial m
             
             labels = torch.cat((labels,label),0)
 
-        _, predicted = torch.max(outputs.data, 1)
-        
-        
-        #print("labels shape {}".format(labels.shape))    
-        #print("outputs shape {}".format(outputs.shape))
-        #print("predicted shape {}".format(predicted.shape))
+        #_, predicted = torch.max(outputs.data, 1)
+        predicted = attr_rep.closest_class(outputs, dist_metric)
         
         total = labels.shape[0]
         correct = (predicted.float() == labels.float()).sum().item()    
         
-        #print("total: {}".format(total))
-        #print("correct: {}".format(correct))
         
-        loss = criterion(outputs, labels)
+        label_vectors = attr_rep.attributevector_of_class(labels)
+        
+        loss = criterion(outputs, label_vectors)
         accuracy = correct / total
         f1 = f1_score(labels, predicted, average='weighted')
     

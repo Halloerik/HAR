@@ -115,7 +115,7 @@ class smallnet(nn.Module):
         z = torch.softmax( z, dim=1)        
         return z
 
-def train(network, training_loader, validation_loader, criterion, optimizer, epochs, gpudevice): 
+def train(network, training_loader, validation_loader, criterion, optimizer, epochs, gpudevice, attr_rep, dist_metric): 
     
     
     loss = torch.zeros(epochs)
@@ -139,15 +139,24 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
             inputs, labels = data
             inputs = inputs.cuda(device = gpudevice)
             #labels = labels.cuda(device = gpudevice)
+            
+            label_vectors = attr_rep.attributevector_of_class(labels)
+            
             # zero the parameter gradients
             optimizer.zero_grad()
             # forward + backward + optimize
             outputs = network(inputs)
-            iter_loss = criterion(outputs, labels)
+            
+            iter_loss = criterion(outputs, label_vectors)
             iter_loss.backward()
             optimizer.step()
         
-        _, predicted = torch.max(outputs.data, 1)
+        #_, predicted = torch.max(outputs.data, 1)
+        predicted = attr_rep.closest_class(outputs.detach(), dist_metric)
+        
+        #print("label shape: {} predicted shape: {}".format(labels.shape,predicted.shape))
+        
+        
         total = labels.size(0)
         correct = (predicted.float() == labels.float()).sum().item()
         
@@ -160,7 +169,7 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
         print("f1 score of training: {}".format(f1[epoch]))
         
         
-        loss_val[epoch], accuracy_val[epoch], f1_val[epoch] = test(network,validation_loader, criterion,gpudevice)
+        loss_val[epoch], accuracy_val[epoch], f1_val[epoch] = test(network,validation_loader, criterion,gpudevice, attr_rep, dist_metric)
         
         print("loss of validation: {}".format(loss_val[epoch]))
         print("accuracy of validation: {}".format(accuracy_val[epoch]))
@@ -178,7 +187,7 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
            f1_val.detach().numpy()) 
 
 
-def test(network,data_loader, criterion,gpudevice): #TODO: adapt this tutorial method for my purpose
+def test(network,data_loader, criterion,gpudevice, attr_rep, dist_metric): #TODO: adapt this tutorial method for my purpose
     
     network.eval()
 
@@ -200,20 +209,16 @@ def test(network,data_loader, criterion,gpudevice): #TODO: adapt this tutorial m
             
             labels = torch.cat((labels,label),0)
 
-        _, predicted = torch.max(outputs.data, 1)
-        
-        
-        #print("labels shape {}".format(labels.shape))    
-        #print("outputs shape {}".format(outputs.shape))
-        #print("predicted shape {}".format(predicted.shape))
+        #_, predicted = torch.max(outputs.data, 1)
+        predicted = attr_rep.closest_class(outputs, dist_metric)
         
         total = labels.shape[0]
         correct = (predicted.float() == labels.float()).sum().item()    
         
-        #print("total: {}".format(total))
-        #print("correct: {}".format(correct))
         
-        loss = criterion(outputs, labels)
+        label_vectors = attr_rep.attributevector_of_class(labels)
+        
+        loss = criterion(outputs, label_vectors)
         accuracy = correct / total
         f1 = f1_score(labels, predicted, average='weighted')
     

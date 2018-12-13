@@ -10,8 +10,8 @@ from data_management import Sliding_Window_Dataset
 from data_management import Attribute_Representation
 import data_management
 
-#pamap2.generate_data("../datasets/","../datasets/pamap.dat")
-    
+
+
     
 def load_data(dataset,gpudevice,batch_size,sliding_window_size,sliding_window_step):
     
@@ -19,8 +19,16 @@ def load_data(dataset,gpudevice,batch_size,sliding_window_size,sliding_window_st
     if dataset is "pamap2":
         file = open("../datasets/pamap.dat", 'rb')
         imulist = [1,13,13,13]
+    elif dataset is "gestures":
+        file = open("../datasets/opportunity_gestures.dat", 'rb')
+        imulist = [3,3,3,3, 3,3,3,3, 3,3,3,3, 9,9,9,9,9, 16,16]
+    elif dataset is "locomotion":
+        file = open("../datasets/opportunity_locomation.dat", 'rb')
+        imulist = [3,3,3,3, 3,3,3,3, 3,3,3,3, 9,9,9,9,9, 16,16]
+    
     data = pickle.load(file)
-
+    file.close()
+    
     training_set    = Sliding_Window_Dataset(data[0], gpudevice, sliding_window_size, sliding_window_step) 
     validation_set  = Sliding_Window_Dataset(data[1], gpudevice, sliding_window_size, sliding_window_step) 
     test_set        = Sliding_Window_Dataset(data[2], gpudevice, sliding_window_size, sliding_window_step) 
@@ -89,7 +97,7 @@ def save_run_stats(name, data,comment):
 
 def main():
     config = {
-    'data_set' : ["pamap2"],
+    'data_set' : ["pamap2","gestures","locomotion"],
     'batch_size' : [64],
     'sliding_window_size' : 100,
     'sliding_window_step' : 22,

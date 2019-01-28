@@ -1,20 +1,25 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+
 from sklearn.metrics import f1_score
+import scipy
 
 class Net(nn.Module):
     
-    def __init__(self, imusizes, segmentsize, numberOfAttributes, gpudevice, kernelsize):
+    def __init__(self, imusizes, segmentsize, n_attributes, gpudevice, kernelsize, uncertaintyforwardpasses):
         super(Net, self).__init__()
         self.gpudevice = gpudevice
         self.cuda(device=self.gpudevice)
         self.imusizes = imusizes
         self.numberOfIMUs = len(imusizes)
-        self.numberOfAttributes = numberOfAttributes
-
+        self.n_attributes = n_attributes
+        self.uncertaintyforwardpasses = uncertaintyforwardpasses
+        
         self.imu_list = []
         for i, sensorcount in enumerate(imusizes):
             imunet = IMUnet(sensorcount, segmentsize,kernelsize, self.gpudevice)
@@ -24,7 +29,7 @@ class Net(nn.Module):
         self.dropout1 = nn.Dropout(0,5)
         self.fc1 = nn.Linear(512*self.numberOfIMUs, 512, bias=True)
         self.dropout2 = nn.Dropout(0,5)
-        self.fc2 = nn.Linear(512, self.numberOfAttributes, bias=True)
+        self.fc2 = nn.Linear(512, self.n_attributes, bias=True)
         #self.softmax = torch.nn.Softmax(dim=1)
         self.sigmoid = torch.nn.Sigmoid()
         
@@ -50,8 +55,44 @@ class Net(nn.Module):
         single_forward_pass = self.fc2(self.dropout2(single_forward_pass))
         single_forward_pass = self.sigmoid(single_forward_pass)
         
-        return single_forward_pass.to(device = "cpu")
-
+        
+        if(self.training):
+            return single_forward_pass.to(device = "cpu")
+        else:
+            
+            forward_passes = torch.zeros((self.uncertaintyforwardpasses, single_forward_pass.shape[0], single_forward_pass.shape[1]))
+            
+            for i in range(self.uncertaintyforwardpasses):
+                forward_pass = torch.tensor(extractedFeatures)
+                forward_pass = F.relu(self.fc1(F.dropout(forward_pass,0.5,training=True)))
+                forward_pass = self.fc2(F.dropout(forward_pass,0.5,training=True))
+                forward_pass = self.sigmoid(forward_pass)
+                
+                forward_passes[i, :, :] = forward_pass
+            
+            
+            #scipy.stats.norm.ppf(0.97725)
+            #torch.var(input, dim, keepdim=False, unbiased=True, out=None)
+            #torch.mean(input, dim, keepdim=False, out=None)
+            
+            #TODO: Multiply mean and var by modelprecision to get predictive equvalents
+            attribute_mean = torch.mean(forward_passes,0)
+            attribute_st_deviation = torch.sqrt( torch.var(forward_passes,0))
+            
+            optimistic_prediction  = attribute_st_deviation.div(math.sqrt(self.uncertaintyforwardpasses)).mul(scipy.stats.norm.ppf(0.97725))
+            pessimistic_prediction = attribute_st_deviation.div(math.sqrt(self.uncertaintyforwardpasses)).mul(scipy.stats.norm.ppf(0.97725))
+            
+            optimistic_prediction = attribute_mean + optimistic_prediction
+            pessimistic_prediction = attribute_mean - pessimistic_prediction
+            
+            results = torch.zeros(4,single_forward_pass.shape[0], single_forward_pass.shape[1])
+            results[0,:,:] = single_forward_pass
+            results[1,:,:] = attribute_mean
+            results[2,:,:] = pessimistic_prediction
+            results[3,:,:] = optimistic_prediction
+            return results
+                
+                
 class IMUnet(nn.Module): #defines a parrallel convolutional block
     def __init__(self,numberOfSensors, segmentsize,kernelsize, gpudevice):
         super(IMUnet, self).__init__()
@@ -92,11 +133,11 @@ class IMUnet(nn.Module): #defines a parrallel convolutional block
         return input
 
 class smallnet(nn.Module):
-    def __init__(self, segmentsize, numberOfAttributes, gpudevice, kernelsize):
+    def __init__(self, segmentsize, n_attributes, gpudevice, kernelsize):
         super(smallnet, self).__init__()
         self.gpudevice = gpudevice
         self.cuda(device=self.gpudevice)
-        self.numberOfAttributes = numberOfAttributes
+        self.n_attributes = n_attributes
         
         imunet = IMUnet(40, segmentsize,kernelsize, self.gpudevice)
         self.add_module("IMUnet",imunet)
@@ -104,7 +145,7 @@ class smallnet(nn.Module):
         self.dropout1 = nn.Dropout(0,5)
         self.fc1 = nn.Linear(512, 512, bias=True)
         self.dropout2 = nn.Dropout(0,5)
-        self.fc2 = nn.Linear(512, self.numberOfAttributes, bias=True)
+        self.fc2 = nn.Linear(512, self.n_attributes, bias=True)
         
     def forward(self,input):
         imunets = self.named_children()
@@ -146,6 +187,9 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
             optimizer.zero_grad()
             # forward + backward + optimize
             outputs = network(inputs)
+            #print("outputs shape {}".format(outputs.shape))
+            #print("labelvectors shape {}".format(label_vectors.shape))
+            
             
             iter_loss = criterion(outputs, label_vectors)
             iter_loss.backward()
@@ -169,7 +213,7 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
         print("f1 score of training: {}".format(f1[epoch]))
         
         
-        loss_val[epoch], accuracy_val[epoch], f1_val[epoch] = test(network,validation_loader, criterion,gpudevice, attr_rep, dist_metric)
+        loss_val[epoch], accuracy_val[epoch], f1_val[epoch] = test(network,validation_loader, criterion,gpudevice, attr_rep, dist_metric, training=True)
         
         print("loss of validation: {}".format(loss_val[epoch]))
         print("accuracy of validation: {}".format(accuracy_val[epoch]))
@@ -187,7 +231,7 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
            f1_val.detach().numpy()) 
 
 
-def test(network,data_loader, criterion,gpudevice, attr_rep, dist_metric): #TODO: adapt this tutorial method for my purpose
+def test(network,data_loader, criterion,gpudevice, attr_rep, dist_metric, training):
     
     network.eval()
 
@@ -199,31 +243,32 @@ def test(network,data_loader, criterion,gpudevice, attr_rep, dist_metric): #TODO
     outputs = torch.zeros(0,dtype=torch.float)
     
     with torch.no_grad():
-        for data in data_loader:
-            inputs, label = data
-            inputs.cuda(device = gpudevice)
-            label.to(device = gpudevice)
+        if training:
+            for data in data_loader:
+                inputs, label = data
+                inputs.cuda(device = gpudevice)
+                label.to(device = gpudevice)
             
-            output = network(inputs)
-            outputs = torch.cat((outputs,output),0)
-            
-            labels = torch.cat((labels,label),0)
+                output = network(inputs)[0,:,:]
+                outputs = torch.cat((outputs,output),0)
+                labels = torch.cat((labels,label),0)
 
-        #_, predicted = torch.max(outputs.data, 1)
-        predicted = attr_rep.closest_class(outputs, dist_metric)
+            #_, predicted = torch.max(outputs.data, 1)
+            predicted = attr_rep.closest_class(outputs, dist_metric)
         
-        total = labels.shape[0]
-        correct = (predicted.float() == labels.float()).sum().item()    
+            total = labels.shape[0]
+            correct = (predicted.float() == labels.float()).sum().item()    
         
         
-        label_vectors = attr_rep.attributevector_of_class(labels)
+            label_vectors = attr_rep.attributevector_of_class(labels)
         
-        loss = criterion(outputs, label_vectors)
-        accuracy = correct / total
-        f1 = f1_score(labels, predicted, average='weighted')
+            loss = criterion(outputs, label_vectors)
+            accuracy = correct / total
+            f1 = f1_score(labels, predicted, average='weighted')
     
-        return loss,accuracy,f1
-    
+            return loss,accuracy,f1
+        else:
+            pass
     
     
     

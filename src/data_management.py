@@ -49,14 +49,59 @@ class Sliding_Window_Dataset(Dataset):
     
     
 class Attribute_Representation():
-    def __init__(self, numberOfClasses,numberOfAttributes):
-        self.numberOfAttributes = numberOfAttributes
-        self.numberOfClasses = numberOfClasses
-        self.attributes = torch.zeros((numberOfClasses,numberOfAttributes))
-    
+    def __init__(self,dataset=None, n_classes=None,n_attributes=None):
+        if dataset is None:
+            self.n_attributes = n_attributes
+            self.n_classes = n_classes
+            self.attributes = torch.zeros((n_classes,n_attributes))
+            self.diagonal_matrix()
+        elif dataset is "pamap2":
+            self.n_attributes = 24
+            self.n_classes = 12               
+            self.attributes = torch.tensor([ [1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,1,1,0,0,1,1],
+                                             [0,1,1,1,0,0,0,1,1,1,1,1,1,1,0,1,0,0,1,1,1,1,0,1],
+                                             [1,0,0,1,1,1,0,0,0,0,1,1,1,0,1,0,0,1,1,1,0,0,0,0],
+                                             [1,0,1,1,0,1,0,0,0,1,0,0,1,0,0,0,1,1,1,1,0,1,1,0],
+                                             [0,1,1,0,0,1,1,1,0,1,0,1,1,0,0,1,1,0,1,0,0,0,0,1],
+                                             [1,0,1,1,1,0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0],
+                                             [0,1,0,1,1,1,1,0,1,0,1,1,0,1,0,1,0,0,0,0,1,0,0,1],
+                                             [0,0,0,1,1,0,0,0,1,0,0,0,0,0,1,0,1,1,0,1,0,0,0,0],
+                                             [1,1,0,1,0,1,0,0,1,1,0,1,1,0,0,1,0,1,0,0,0,1,0,0],
+                                             [1,0,1,0,0,1,0,0,1,1,0,0,1,1,1,1,0,0,1,1,1,1,1,1],
+                                             [0,1,0,1,1,0,1,1,1,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1],
+                                             [1,0,1,1,1,1,0,1,1,0,1,1,0,0,0,1,1,1,0,0,0,0,1,1] ])
+        elif dataset is "gestures":
+            self.n_attributes = 32
+            self.n_classes = 18
+            self.attributes = torch.tensor([ [1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,1,0,1,1,0,0],
+                                            [1,0,1,0,1,1,1,1,0,0,0,1,1,0,1,1,0,0,1,0,1,0,0,0,0,1,1,0,0,1,0,1],
+                                            [1,1,0,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,0,0,0,1,0,1,0,1,0,1,0,0,1],
+                                            [1,0,1,0,0,0,1,0,0,0,1,0,1,1,1,0,0,1,1,0,0,1,0,1,0,1,0,1,1,0,0,1],
+                                            [1,1,0,0,1,0,0,0,1,1,0,0,1,0,1,1,1,0,0,1,1,0,1,0,0,0,0,0,0,1,0,0],
+                                            [0,1,0,0,0,0,1,1,0,1,0,1,0,0,1,1,0,1,0,0,1,0,1,1,0,1,1,1,0,1,0,1],
+                                            [1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1],
+                                            [0,1,1,1,1,0,0,1,0,1,0,0,0,1,0,0,1,1,1,0,1,1,1,1,1,0,1,0,0,1,0,0],
+                                            [0,0,0,0,0,1,0,0,1,0,1,1,0,0,1,1,0,1,1,0,1,1,0,0,0,1,0,1,1,0,0,1],
+                                            [0,1,1,0,0,0,0,1,1,0,1,1,1,0,0,0,1,0,0,0,0,1,0,1,0,1,0,1,0,0,0,1],
+                                            [1,1,0,1,0,0,0,1,1,0,0,1,0,0,1,1,1,0,1,1,1,1,0,0,1,1,0,0,0,1,1,1],
+                                            [1,0,0,0,0,1,1,0,1,1,1,1,1,1,0,1,1,0,1,1,0,0,0,1,0,0,1,1,1,0,0,0],
+                                            [1,1,1,1,1,0,1,0,0,1,0,0,0,1,0,1,1,1,1,0,0,1,1,0,0,1,0,0,1,0,1,0],
+                                            [0,0,0,0,1,0,0,0,1,1,0,0,1,1,1,1,1,1,0,0,0,1,1,1,1,0,0,1,0,1,0,0],
+                                            [0,1,1,0,0,0,1,1,1,1,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,1,1,1],
+                                            [1,0,1,1,0,0,1,1,0,0,0,0,1,1,1,1,0,1,0,1,0,1,0,1,1,1,1,0,0,1,0,0],
+                                            [1,0,0,1,1,1,1,0,1,1,1,0,1,0,1,0,1,0,0,1,1,0,0,0,1,0,0,1,0,0,1,0],
+                                            [1,1,0,1,0,0,0,1,1,1,0,1,0,1,1,1,1,0,1,0,1,1,0,0,0,0,0,0,0,1,1,1] ])
+        elif dataset is "locomotion":
+            self.n_attributes = 10
+            self.n_classes = 5
+            self.attributes = torch.tensor([ [1,0,0,0,0,1,0,0,1,1],
+                                             [0,1,1,0,1,1,1,1,1,1],  
+                                             [0,1,0,0,0,0,0,0,1,1],
+                                             [0,0,0,0,1,1,0,0,1,1],
+                                             [1,1,1,0,1,0,0,1,1,0] ])
     def diagonal_matrix(self):
-        if self.numberOfAttributes is self.numberOfClasses:
-            for i in range(self.numberOfClasses):
+        if self.n_attributes is self.n_classes:
+            for i in range(self.n_classes):
                 self.attributes[i][i] = 1
         
     def mutate(self): #TODO: mutate attributerepresentation
@@ -73,7 +118,7 @@ class Attribute_Representation():
             closestDistance = self.distance(attrVector,classVector,distancemetric)
             closestClass[batch] = 0
                 
-            for i in range(1,self.numberOfClasses):
+            for i in range(1,self.n_classes):
                 attrVector = attributeVector[batch,:]
                 classVector = self.attributes[i, :]
                 newDistance = self.distance(attrVector,classVector,distancemetric)
@@ -98,7 +143,7 @@ class Attribute_Representation():
     def attributevector_of_class(self, class_indeces):
         #print(class_index)
         batch_size = class_indeces.shape[0]
-        class_attributes = torch.zeros(batch_size,self.numberOfAttributes)
+        class_attributes = torch.zeros(batch_size,self.n_attributes)
         for i in range(batch_size):
             class_index = int(class_indeces[i].item())
             class_attributes[i,:] = self.attributes[class_index, :] 

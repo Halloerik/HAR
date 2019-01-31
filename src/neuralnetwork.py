@@ -233,7 +233,10 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
 
 def test(network,data_loader, criterion,gpudevice, attr_rep, dist_metric, training):
     
-    network.eval()
+    if training:
+        network.train()
+    else:
+        network.eval()
 
     correct = 0
     total = 0

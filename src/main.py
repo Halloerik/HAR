@@ -15,19 +15,17 @@ def load_data(dataset,gpudevice,batch_size,sliding_window_size,sliding_window_st
     
     
     if dataset is "pamap2":
-        file = open("../datasets/pamap.dat", 'rb')
-        #imulist = [1,13,13,13]
-        imulist = [40]
+        #file = open("../datasets/pamap.dat", 'rb')
+        file= open("/data/ealterma/pamap.dat", 'rb')
+        imulist = [1,13,13,13]
     elif dataset is "gestures":
-        file = open("../datasets/opportunity_gestures.dat", 'rb')
-        #imulist = [3,3,3,3, 3,3,3,3, 3,3,3,3, 9,9,9,9,9, 16,16]
-        imulist = [113]
+        #file = open("../datasets/opportunity_gestures.dat", 'rb')
+        file = open("/data/ealterma/opportunity_gestures.dat", 'rb')
+        imulist = [3,3,3,3, 3,3,3,3, 3,3,3,3, 9,9,9,9,9, 16,16]
     elif dataset is "locomotion":
-        file = open("../datasets/opportunity_locomotion.dat", 'rb')
-        #imulist = [3,3,3,3, 3,3,3,3, 3,3,3,3, 9,9,9,9,9, 16,16]
-        imulist = [113]
-        
-    attr_rep = Attribute_Representation(dataset=dataset)
+        #file = open("../datasets/opportunity_locomation.dat", 'rb')
+        file = open("/data/ealterma/opportunity_locomation.dat", 'rb')
+        imulist = [3,3,3,3, 3,3,3,3, 3,3,3,3, 9,9,9,9,9, 16,16]
     
     data = pickle.load(file)
     file.close()
@@ -85,13 +83,14 @@ def plot_run_stats(name,data, epochs):
     
     #plt.show()
     
-    f= open("../../performance/{}.png".format(name), 'w+b')
+    #f= open("../../performance/{}.png".format(name), 'w+b')
+    f = open("/data/ealterma/results/{}.png".format(name), 'w+b')
     plt.savefig(f, facecolor='w', edgecolor='w')
     f.close()
     
 def save_run_stats(name, data,comment):
-    f= open("../../performance/{}.txt".format(name), 'w+t')
-    
+    #f= open("../../performance/{}.txt".format(name), 'w+t')
+    f= open("/data/ealterma/results/{}.txt".format(name), 'w+t')
     table = np.stack(data, 1)
     
     np.savetxt(f, table, delimiter=' ', newline='\n', 

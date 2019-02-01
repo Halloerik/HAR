@@ -17,15 +17,18 @@ def load_data(dataset,gpudevice,batch_size,sliding_window_size,sliding_window_st
     if dataset is "pamap2":
         #file = open("../datasets/pamap.dat", 'rb')
         file= open("/data/ealterma/pamap.dat", 'rb')
-        imulist = [1,13,13,13]
+        #imulist = [1,13,13,13]
+        imulist = [40]
     elif dataset is "gestures":
         #file = open("../datasets/opportunity_gestures.dat", 'rb')
         file = open("/data/ealterma/opportunity_gestures.dat", 'rb')
-        imulist = [3,3,3,3, 3,3,3,3, 3,3,3,3, 9,9,9,9,9, 16,16]
+        #imulist = [3,3,3,3, 3,3,3,3, 3,3,3,3, 9,9,9,9,9, 16,16]
+        imulist = [113]
     elif dataset is "locomotion":
         #file = open("../datasets/opportunity_locomation.dat", 'rb')
-        file = open("/data/ealterma/opportunity_locomation.dat", 'rb')
-        imulist = [3,3,3,3, 3,3,3,3, 3,3,3,3, 9,9,9,9,9, 16,16]
+        file = open("/data/ealterma/opportunity_locomotion.dat", 'rb')
+        #imulist = [3,3,3,3, 3,3,3,3, 3,3,3,3, 9,9,9,9,9, 16,16]
+        imulist = [113]
     
     data = pickle.load(file)
     file.close()
@@ -40,6 +43,8 @@ def load_data(dataset,gpudevice,batch_size,sliding_window_size,sliding_window_st
     validation_loader   = torch.utils.data.DataLoader(validation_set, batch_size=batch_size, shuffle=True , num_workers=0, pin_memory = True)
     test_loader         = torch.utils.data.DataLoader(test_set      , batch_size=batch_size, shuffle=False, num_workers=0, pin_memory = True)
     
+    attr_rep = Attribute_Representation(dataset)
+    
     return training_loader, validation_loader, test_loader, imulist, attr_rep
 
 def get_optimiser(network, optimizer, learning_rate, weight_decay,momentum):
@@ -47,6 +52,11 @@ def get_optimiser(network, optimizer, learning_rate, weight_decay,momentum):
     if optimizer is "SGD":
         #print("optimizer should be sgd")
         return torch.optim.SGD(network.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
+    elif optimizer is "Adam":
+        return torch.optim.Adam(network.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
+    elif optimizer is "RMSprop":
+        return torch.optim.RMSprop(network.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
+    
 
 def plot_run_stats(name,data, epochs):
     fig, ax_lst = plt.subplots(3, 1)
@@ -101,7 +111,7 @@ def save_run_stats(name, data,comment):
 
 def main():
     config = {
-    'data_set' : ["pamap2","gestures","locomotion"],
+    'data_set' : ["pamap2","locomotion","gestures"],
     'batch_size' : [128],
     'sliding_window_size' : 100,
     'sliding_window_step' : 22,
@@ -109,10 +119,10 @@ def main():
     #Training Parameters
     'epochs' : 200,
     'learning_rate' : [0.01,0.001,0.0001],
-    'weight_decay' : [0.0001],
-    'momentum' : [0.9],
+    'weight_decay' : [0.0001,0.00001,0.000001],
+    'momentum' : [0.9,0.8,0.7],
     'loss_critereon' : [torch.nn.BCELoss()],
-    'optimizer' : ["SGD"],
+    'optimizer' : ["SGD","Adam","RMSprop"],
     
     #Network parameters
     'kernelsize' : [(5,1)],
@@ -120,8 +130,8 @@ def main():
     'gpu_device' : torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
     
     #Attribute Representation
-    'n_attributes' : {"pamap2" : 12, "locomotion" : 10, "gestures" : 18},
-    'distance_metric' : ["braycurtis","cosine"],
+    'n_attributes' : {"pamap2" : 24, "locomotion" : 10, "gestures" : 32},
+    'distance_metric' : ["cosine","braycurtis","euclidean"],
     
     #Uncertainty
     'uncertainty_forward_passes' : 100

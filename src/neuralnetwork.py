@@ -115,7 +115,9 @@ class IMUnet(nn.Module): #defines a parrallel convolutional block
         self.pool2 = nn.MaxPool2d(kernel_size=(2,1), stride=1, padding=0, return_indices=False, ceil_mode=False) 
         self.dropout5 = nn.Dropout(0,5)
         
-        neurons = (segmentsize-18)*numberOfSensors*64  
+        #print("number of sensors {}".format(numberOfSensors))
+        neurons = (segmentsize-18)*numberOfSensors*64
+        
         self.fc1 = nn.Linear(int(neurons), 512, bias=True)
         
     def forward(self, input):
@@ -129,6 +131,7 @@ class IMUnet(nn.Module): #defines a parrallel convolutional block
         input = self.pool2(input)
         batchsize = input.shape[0]
         input = torch.reshape(input,(batchsize,-1))
+        #print("shape of input {}".format(input.shape))
         input = F.relu( self.fc1( self.dropout5(input)))
         return input
 
@@ -252,13 +255,20 @@ def test(network,data_loader, criterion,gpudevice, attr_rep, dist_metric, traini
                 inputs.cuda(device = gpudevice)
                 label.to(device = gpudevice)
             
-                output = network(inputs)[0,:,:]
+                output = network(inputs)
+                
+                #print("output {}".format(output.shape))
+                
                 outputs = torch.cat((outputs,output),0)
                 labels = torch.cat((labels,label),0)
 
             #_, predicted = torch.max(outputs.data, 1)
             predicted = attr_rep.closest_class(outputs, dist_metric)
-        
+            
+            #print("output {}".format(outputs))    
+            #print("predicted {}".format(predicted))
+            #print("label {}".format(labels))
+            
             total = labels.shape[0]
             correct = (predicted.float() == labels.float()).sum().item()    
         

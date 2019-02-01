@@ -70,6 +70,7 @@ class Attribute_Representation():
                                              [1,0,1,0,0,1,0,0,1,1,0,0,1,1,1,1,0,0,1,1,1,1,1,1],
                                              [0,1,0,1,1,0,1,1,1,0,1,0,1,1,1,1,1,0,0,0,1,0,0,1],
                                              [1,0,1,1,1,1,0,1,1,0,1,1,0,0,0,1,1,1,0,0,0,0,1,1] ])
+            #print(self.attributes)
         elif dataset is "gestures":
             self.n_attributes = 32
             self.n_classes = 18
@@ -103,18 +104,19 @@ class Attribute_Representation():
         if self.n_attributes is self.n_classes:
             for i in range(self.n_classes):
                 self.attributes[i][i] = 1
-        
-    def mutate(self): #TODO: mutate attributerepresentation
-        pass
     
     def closest_class(self,attributeVector, distancemetric="cosine"):
         batch_size = attributeVector.shape[0]
         closestClass = torch.zeros(batch_size)
         
         for batch in range(batch_size):
-                
+            
             attrVector = attributeVector[batch,:]
             classVector = self.attributes[0, :]
+            
+            #print("attrVector {}".format(attrVector.shape))
+            #print("classVector {}".format(classVector.shape))
+            
             closestDistance = self.distance(attrVector,classVector,distancemetric)
             closestClass[batch] = 0
                 

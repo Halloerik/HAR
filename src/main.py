@@ -89,7 +89,7 @@ def plot_run_stats(name,data, epochs):
     y2 = data[5]
     ax_lst[2].plot(x,y1, label="Training")
     ax_lst[2].plot(x,y2, label="Validation")
-    #ax_lst[2].legend()
+    ax_lst[2].legend()
     
     #plt.show()
     

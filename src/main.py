@@ -25,7 +25,7 @@ def load_data(dataset,gpudevice,batch_size,sliding_window_size,sliding_window_st
         #imulist = [3,3,3,3, 3,3,3,3, 3,3,3,3, 9,9,9,9,9, 16,16]
         imulist = [113]
     elif dataset is "locomotion":
-        #file = open("../datasets/opportunity_locomation.dat", 'rb')
+        #file = open("../datasets/opportunity_locomotion.dat", 'rb')
         file = open("/data/ealterma/opportunity_locomotion.dat", 'rb')
         #imulist = [3,3,3,3, 3,3,3,3, 3,3,3,3, 9,9,9,9,9, 16,16]
         imulist = [113]
@@ -53,7 +53,7 @@ def get_optimiser(network, optimizer, learning_rate, weight_decay,momentum):
         #print("optimizer should be sgd")
         return torch.optim.SGD(network.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
     elif optimizer is "Adam":
-        return torch.optim.Adam(network.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
+        return torch.optim.Adam(network.parameters(), lr=learning_rate, weight_decay=weight_decay)
     elif optimizer is "RMSprop":
         return torch.optim.RMSprop(network.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
     
@@ -112,9 +112,12 @@ def save_run_stats(name, data,comment):
 def main():
     config = {
     'data_set' : ["pamap2","locomotion","gestures"],
-    'batch_size' : [128],
-    'sliding_window_size' : 100,
-    'sliding_window_step' : 22,
+    #'data_set' : ["locomotion","gestures","pamap2"],
+    #'data_set' : ["gestures","pamap2","locomotion"],
+    
+    'batch_size' : {"pamap2" : 50, "locomotion" : 100, "gestures" : 100},
+    'sliding_window_size' : {"pamap2" : 100, "locomotion" : 24, "gestures" : 24},
+    'sliding_window_step' : {"pamap2" : 22, "locomotion" : 12, "gestures" : 12},
     
     #Training Parameters
     'epochs' : 200,
@@ -144,28 +147,31 @@ def main():
     #    print(current_config_str(config, i))
     
     for ds in config['data_set']:
-        for b in config['batch_size']:
-            training_loader,validation_loader,test_loader, imu_list, attr_rep = load_data(
-                ds,config['gpu_device'],b,config['sliding_window_size'],config['sliding_window_step'])
-            for lr in config['learning_rate']:
-                for wd in config['weight_decay']:
-                    for m in config['momentum']:
-                        for ks in config['kernelsize']:
-                            for opt in config['optimizer']:
-                                for criterion in config['loss_critereon']:
-                                    for dist_metric in config['distance_metric']:
+        #for b in config['batch_size']:
+        batch_size = config['batch_size'][ds]
+        training_loader,validation_loader,test_loader, imu_list, attr_rep = load_data(
+                ds,config['gpu_device'],batch_size,config['sliding_window_size'][ds],config['sliding_window_step'][ds])
+        for lr in config['learning_rate']:
+            for wd in config['weight_decay']:
+                for m in config['momentum']:
+                    for ks in config['kernelsize']:
+                        for opt in config['optimizer']:
+                            for criterion in config['loss_critereon']:
+                                for dist_metric in config['distance_metric']:
                                     
-                                        network = neuralnetwork.Net(imu_list,config['sliding_window_size'], config['n_attributes'][ds],
+                                    network = neuralnetwork.Net(imu_list,config['sliding_window_size'][ds], config['n_attributes'][ds],
                                                                  config['gpu_device'], ks, config['uncertainty_forward_passes']).cuda(config['gpu_device'])
                                                                  
-                                        optimizer = get_optimiser(network, opt, lr, wd, m)
+                                    optimizer = get_optimiser(network, opt, lr, wd, m)
                                         
-                                        data = neuralnetwork.train(network, training_loader, validation_loader, criterion, optimizer, config['epochs'], config['gpu_device'],attr_rep,dist_metric)
-                                            
-                                        plot_run_stats("train run {}".format(run_number), data, config['epochs'])
-                                        save_run_stats("train run {}".format(run_number),data,current_config_str(config, run_number))
+                                    data = neuralnetwork.train(network, training_loader, validation_loader, criterion, optimizer, config['epochs'], config['gpu_device'],attr_rep,dist_metric)
+                                           
                                     
-                                        run_number += 1
+                                    
+                                    plot_run_stats("train run {}, {}".format(run_number,ds), data, config['epochs'])
+                                    save_run_stats("train run {}, {}".format(run_number,ds),data,current_config_str(config, run_number))
+                                    
+                                    run_number += 1
                 
 def current_config_str(config, current_run):
     run_number = 0
@@ -190,7 +196,7 @@ def current_config_str(config, current_run):
                                             return(current_config[0:-2])
                                         else:
                                             run_number += 1
-    
-    
+                                        
+                                        
 if __name__ == '__main__':
     main()    

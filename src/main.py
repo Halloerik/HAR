@@ -163,12 +163,15 @@ def main():
                                                                  config['gpu_device'], ks, config['uncertainty_forward_passes']).cuda(config['gpu_device'])
                                                                  
                                     optimizer = get_optimiser(network, opt, lr, wd, m)
+                                    
+                                    
+                                    print("Run number: {}".format(run_number))
                                         
                                     data = neuralnetwork.train(network, training_loader, validation_loader, criterion, optimizer, config['epochs'], config['gpu_device'],attr_rep,dist_metric)
                                            
                                     
                                     
-                                    plot_run_stats("train run {}, {}".format(run_number,ds), data, config['epochs'])
+                                    #plot_run_stats("train run {}, {}".format(run_number,ds), data, config['epochs'])
                                     save_run_stats("train run {}, {}".format(run_number,ds),data,current_config_str(config, run_number))
                                     
                                     run_number += 1

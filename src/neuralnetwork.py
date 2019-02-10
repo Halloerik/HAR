@@ -211,16 +211,16 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
         accuracy[epoch] = correct / total
         f1[epoch] = f1_score(labels, predicted, average='weighted')
         
-        print("loss of training: {}".format(loss[epoch]))
-        print("accuracy of training: {}".format(accuracy[epoch]))
-        print("f1 score of training: {}".format(f1[epoch]))
+        #print("loss of training: {}".format(loss[epoch]))
+        #print("accuracy of training: {}".format(accuracy[epoch]))
+        #print("f1 score of training: {}".format(f1[epoch]))
         
         
         loss_val[epoch], accuracy_val[epoch], f1_val[epoch] = test(network,validation_loader, criterion,gpudevice, attr_rep, dist_metric, training=True)
         
-        print("loss of validation: {}".format(loss_val[epoch]))
-        print("accuracy of validation: {}".format(accuracy_val[epoch]))
-        print("f1 score of validation: {}".format(f1_val[epoch]))
+        #print("loss of validation: {}".format(loss_val[epoch]))
+        #print("accuracy of validation: {}".format(accuracy_val[epoch]))
+        #print("f1 score of validation: {}".format(f1_val[epoch]))
         
         network.train(True)
 

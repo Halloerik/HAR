@@ -50,7 +50,7 @@ class Net(nn.Module):
             firstsensor = lastsensor
         
         #Compute single forwardpass without dropout
-        single_forward_pass = torch.tensor(extractedFeatures)
+        single_forward_pass = torch.tensor(extractedFeatures).cuda(device = self.gpudevice)
         single_forward_pass = F.relu(self.fc1(self.dropout1(single_forward_pass)))
         single_forward_pass = self.fc2(self.dropout2(single_forward_pass))
         single_forward_pass = self.sigmoid(single_forward_pass)
@@ -63,7 +63,7 @@ class Net(nn.Module):
             forward_passes = torch.zeros((self.uncertaintyforwardpasses, single_forward_pass.shape[0], single_forward_pass.shape[1]))
             
             for i in range(self.uncertaintyforwardpasses):
-                forward_pass = torch.tensor(extractedFeatures)
+                forward_pass = torch.tensor(extractedFeatures).cuda(device = self.gpudevice)
                 forward_pass = F.relu(self.fc1(F.dropout(forward_pass,0.5,training=True)))
                 forward_pass = self.fc2(F.dropout(forward_pass,0.5,training=True))
                 forward_pass = self.sigmoid(forward_pass)

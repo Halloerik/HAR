@@ -130,7 +130,7 @@ def main():
     #Network parameters
     'kernelsize' : [(5,1)],
     
-    'gpu_device' : torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
+    'gpu_device' : torch.device("cuda:1" if torch.cuda.is_available() else "cpu"),
     
     #Attribute Representation
     'n_attributes' : {"pamap2" : 24, "locomotion" : 10, "gestures" : 32},

@@ -15,8 +15,8 @@ def load_data(dataset,gpudevice,batch_size,sliding_window_size,sliding_window_st
     
     
     if dataset is "pamap2":
-        #file = open("../datasets/pamap.dat", 'rb')
-        file= open("/data/ealterma/pamap.dat", 'rb')
+        file = open("../datasets/pamap.dat", 'rb')
+        #file= open("/data/ealterma/pamap.dat", 'rb')
         #imulist = [1,13,13,13]
         imulist = [40]
     elif dataset is "gestures":
@@ -99,8 +99,8 @@ def plot_run_stats(name,data, epochs):
     f.close()
     
 def save_run_stats(name, data,comment):
-    #f= open("../../performance/{}.txt".format(name), 'w+t')
-    f= open("/data/ealterma/results/{}.txt".format(name), 'w+t')
+    f= open("../../performance/{}.txt".format(name), 'w+t')
+    #f= open("/data/ealterma/results/{}.txt".format(name), 'w+t')
     table = np.stack(data, 1)
     
     np.savetxt(f, table, delimiter=' ', newline='\n', 
@@ -120,7 +120,7 @@ def main():
     'sliding_window_step' : {"pamap2" : 22, "locomotion" : 12, "gestures" : 12},
     
     #Training Parameters
-    'epochs' : 200,
+    'epochs' : 10,
     'learning_rate' : [0.01,0.001,0.0001],
     'weight_decay' : [0.0001,0.00001,0.000001],
     'momentum' : [0.9,0.8,0.7],
@@ -130,7 +130,7 @@ def main():
     #Network parameters
     'kernelsize' : [(5,1)],
     
-    'gpu_device' : torch.device("cuda:1" if torch.cuda.is_available() else "cpu"),
+    'gpu_device' : torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
     
     #Attribute Representation
     'n_attributes' : {"pamap2" : 24, "locomotion" : 10, "gestures" : 32},
@@ -175,7 +175,12 @@ def main():
                                     save_run_stats("train run {}, {}".format(run_number,ds),data,current_config_str(config, run_number))
                                     
                                     run_number += 1
-                
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    
 def current_config_str(config, current_run):
     run_number = 0
     for ds in config['data_set']:
@@ -189,8 +194,8 @@ def current_config_str(config, current_run):
                                     for dist_metric in config['distance_metric']:
                                             
                                         if run_number is current_run:
-                                            settings = [('data_set',ds),('batch_size',b),('sliding_window_size',config['sliding_window_size']),
-                                                        ('sliding_window_step',config['sliding_window_step']), ('epochs',config['epochs']),
+                                            settings = [('data_set',ds),('batch_size',config['batch_size'][ds]),('sliding_window_size',config['sliding_window_size'][ds]),
+                                                        ('sliding_window_step',config['sliding_window_step'][ds]), ('epochs',config['epochs']),
                                                         ('learning_rate',lr),('weight_decay',wd),('momentum',m),('loss_critereon',criterion),
                                                         ('optimizer',opt),('kernelsize',ks),('distance_metric',dist_metric)]
                                             current_config = ''

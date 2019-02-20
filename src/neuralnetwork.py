@@ -68,6 +68,8 @@ class Net(nn.Module):
                 forward_pass = self.fc2(F.dropout(forward_pass,0.5,training=True))
                 forward_pass = self.sigmoid(forward_pass)
                 
+                #print("forward pass {}: {}".format(i,forward_pass[0]))
+                
                 forward_passes[i, :, :] = forward_pass
             
             
@@ -77,13 +79,27 @@ class Net(nn.Module):
             
             #TODO: Multiply mean and var by modelprecision to get predictive equvalents
             attribute_mean = torch.mean(forward_passes,0)
-            attribute_st_deviation = torch.sqrt( torch.var(forward_passes,0))
+            attribute_variance = torch.var(forward_passes,0)
+            attribute_st_deviation = torch.sqrt( attribute_variance)
+                        
             
-            optimistic_prediction  = attribute_st_deviation.div(math.sqrt(self.uncertaintyforwardpasses)).mul(scipy.stats.norm.ppf(0.97725))
-            pessimistic_prediction = attribute_st_deviation.div(math.sqrt(self.uncertaintyforwardpasses)).mul(scipy.stats.norm.ppf(0.97725))
             
-            optimistic_prediction = attribute_mean + optimistic_prediction
-            pessimistic_prediction = attribute_mean - pessimistic_prediction
+            
+            
+            
+            
+            factor = torch.div(attribute_variance, self.uncertaintyforwardpasses )
+            factor = torch.sqrt(factor)
+            factor = torch.mul(factor, scipy.stats.norm.ppf(0.97725))
+            
+            
+            
+            optimistic_prediction  = attribute_mean + factor
+            optimistic_prediction[optimistic_prediction>1] = 1
+            
+            pessimistic_prediction = attribute_mean - factor
+            pessimistic_prediction[pessimistic_prediction<0] = 0
+            
             
             results = torch.zeros(4,single_forward_pass.shape[0], single_forward_pass.shape[1])
             results[0,:,:] = single_forward_pass
@@ -178,7 +194,7 @@ def train(network, training_loader, validation_loader, criterion, optimizer, epo
         outputs = None
         labels= None
         iter_loss = None
-        for i, data in enumerate(training_loader, 0):
+        for _, data in enumerate(training_loader, 0):
             # get the inputs
             inputs, labels = data
             inputs = inputs.cuda(device = gpudevice)
@@ -281,7 +297,60 @@ def test(network,data_loader, criterion,gpudevice, attr_rep, dist_metric, traini
     
             return loss,accuracy,f1
         else:
-            pass
+            
+            for data in data_loader:
+                inputs, label = data
+                inputs.cuda(device = gpudevice)
+                label.to(device = gpudevice)
+            
+                output = network(inputs)
+                outputs = torch.cat((outputs,output),1)
+                labels = torch.cat((labels,label),0)
+                
+                
+            
+            print("outputs {}".format(outputs.shape))
+            print("labels {}".format(labels.shape))
+            
+            loss = torch.zeros(4,dtype=torch.float)
+            accuracy = torch.zeros(4,dtype=torch.float)
+            f1 = torch.zeros(4,dtype=torch.float)
+            
+            for i in range(4):
+                
+                print("prediction {}/4".format(i+1))
+                
+                predicted = attr_rep.closest_class(outputs[i,:,:], dist_metric)
+                
+                #print("predicted: {}".format(predicted) )
+                
+                total = labels.shape[0]
+                correct = (predicted.float() == labels.float()).sum().item()  
+                label_vectors = attr_rep.attributevector_of_class(labels)
+        
+                loss[i] = criterion(outputs[i,:,:], label_vectors)
+                
+                #print("loss {}: {}".format(i+1,loss[i]))
+                
+                accuracy[i] = correct / total
+                f1[i] = f1_score(labels, predicted, average='weighted')
+    
+            return loss,accuracy,f1
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     
     

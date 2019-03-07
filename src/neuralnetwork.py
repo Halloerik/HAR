@@ -1,5 +1,5 @@
 import math
-
+import numpy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -311,10 +311,10 @@ def test(network,data_loader, criterion,gpudevice, attr_rep, dist_metric, traini
             
             print("outputs {}".format(outputs.shape))
             print("labels {}".format(labels.shape))
-            
             loss = torch.zeros(4,dtype=torch.float)
             accuracy = torch.zeros(4,dtype=torch.float)
             f1 = torch.zeros(4,dtype=torch.float)
+            f1_per_class = None
             
             for i in range(4):
                 
@@ -334,8 +334,17 @@ def test(network,data_loader, criterion,gpudevice, attr_rep, dist_metric, traini
                 
                 accuracy[i] = correct / total
                 f1[i] = f1_score(labels, predicted, average='weighted')
-    
-            return loss,accuracy,f1
+                if f1_per_class is None: 
+                    f1_per_class = f1_score(labels, predicted, average=None)
+                    f1_per_class = numpy.expand_dims(f1_per_class, axis=1)
+                    #print(f1_per_class)
+                else:
+                    f = f1_score(labels, predicted, average=None)
+                    f = numpy.expand_dims(f,axis=1)
+                    f1_per_class = numpy.concatenate((f1_per_class,f),1)
+                    
+            f1_per_class = torch.from_numpy(f1_per_class)
+            return loss,accuracy,f1,f1_per_class
     
     
     
